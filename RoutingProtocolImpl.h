@@ -42,12 +42,16 @@ class RoutingProtocolImpl : public RoutingProtocol {
 
     void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
 
+    void init_pingpong();
+
  private:
     Node *sys; // To store Node object; used to access GSR9999 interfaces
 
     unsigned short num_ports;
     unsigned short router_id;
     eProtocolType packet_type;
+
+    vector<PortEntry> ports;
 
 
 };

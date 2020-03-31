@@ -16,7 +16,11 @@ void RoutingProtocolImpl::init(unsigned short num_ports, unsigned short router_i
     this->packet_type = protocol_type;
 
     // Iterate through num_ports to set ports
+//    for (int i = 0; i < num_ports; i++) {
+//        PortEntry pe;
+//    }
 
+    init_pingpong();
 
 }
 
@@ -56,7 +60,20 @@ void RoutingProtocolImpl::recv_ping_packet(unsigned short port, void *packet, un
 }
 
 void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, unsigned short size) {
+    // get rtt
 
+    
+}
+
+void RoutingProtocolImpl::init_pingpong() {
+    for (int i = 0; i < this->num_ports; i++) {
+        char * ping_packet = (char *) malloc(PINGPONG_PACKET_SIZE * sizeof(char));
+        *(char *) ping_packet = PING;
+        *(uint16_t *) (ping_packet + 2) = htons(12);
+        *(uint16_t *) (ping_packet + 4) = htons(this->router_id);
+        *(uint16_t *) (ping_packet + 8) = htons(sys->time());
+        sys->send(i, ping_packet, PINGPONG_PACKET_SIZE);
+    }
 }
 
 // add more of your own code
