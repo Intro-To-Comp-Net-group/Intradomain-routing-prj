@@ -51,9 +51,7 @@ class RoutingProtocolImpl : public RoutingProtocol {
     unsigned short router_id;
     eProtocolType packet_type;
 
-    vector<PortEntry> ports;
-
-
+    vector<PortEntry> port_graph;
 };
 
 #endif

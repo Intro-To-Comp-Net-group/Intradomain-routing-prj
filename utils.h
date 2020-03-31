@@ -9,9 +9,9 @@
 #define PINGPONG_PACKET_SIZE 12
 
 struct PortEntry {
-    uint16_t port_number;
     uint16_t dest_port;
-
+    unsigned int cost;
+    unsigned int last_update_time;
 };
 
 
