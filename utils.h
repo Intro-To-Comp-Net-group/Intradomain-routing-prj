@@ -14,5 +14,11 @@ struct PortEntry {
     unsigned int last_update_time;
 };
 
+struct DirectNeighbor {
+    uint16_t port_num;
+    uint16_t router_id;
+    unsigned int cost;
+};
+
 
 #endif //PROJECT3_UTILS_H

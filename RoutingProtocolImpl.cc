@@ -64,16 +64,16 @@ void RoutingProtocolImpl::recv_ping_packet(unsigned short port, void *packet, un
 }
 
 void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, unsigned short size) {
-    char * recv_packet = (char *) packet;
-    // get rtt
+    char *recv_packet = (char *) packet;
+    // get rtt: recv_timestamp is the timestamp where PING sent, curr - get_time measure the RTT.
     unsigned int current_time = sys->time();
-    unsigned int get_time = ntohs(*(uint16_t *) (recv_packet + 8)); // get the timestamp
+    unsigned int get_time = ntohs(*(uint16_t *) (recv_packet + 8));
     unsigned int rtt = current_time - get_time;
+    port_graph[port].last_update_time = current_time;
 
-    // We want the source ID
+    // TODO: We want the source ID
     uint16_t fromID = *(uint16_t *) (recv_packet + 4);
     port_graph[port].dest_port = fromID;
-
 
 }
 
