@@ -2,6 +2,8 @@
 #define ROUTINGPROTOCOLIMPL_H
 
 #include "RoutingProtocol.h"
+#include "utils.h"
+#include "Node.h"
 
 class RoutingProtocolImpl : public RoutingProtocol {
   public:
@@ -35,12 +37,18 @@ class RoutingProtocolImpl : public RoutingProtocol {
     // that the packet is generated locally and not received from 
     // a neighbor router.
 
+    // Additional Helper Functions Implemented by Our team
+    void recv_ping_packet(unsigned short port, void *packet, unsigned short size);
+
+    void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
+
  private:
     Node *sys; // To store Node object; used to access GSR9999 interfaces
 
     unsigned short num_ports;
     unsigned short router_id;
     eProtocolType packet_type;
+
 
 };
 

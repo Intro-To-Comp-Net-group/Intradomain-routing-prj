@@ -5,6 +5,7 @@
 #include <queue>
 #include <fstream>
 #include <string>
+#include <ext/hash_map>
 #include <unordered_map>
 #include <cstdlib>
 #include <cstdio>
