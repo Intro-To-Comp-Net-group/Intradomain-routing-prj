@@ -38,10 +38,7 @@ public:
     // that the packet is generated locally and not received from 
     // a neighbor router.
 
-    // Additional Helper Functions Implemented by Our team
-    void recv_ping_packet(unsigned short port, void *packet, unsigned short size);
 
-    void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
 
 
 private:
@@ -54,12 +51,18 @@ private:
     vector<PortEntry> port_graph;
 
     unordered_map<uint16_t, DirectNeighborEntry> direct_neighbor_map;   // other router id --- DirectNeighbor   PHYSICAL
-    unordered_map<uint16_t, ForwardTableEntry> forward_table;   // other router id --- the port a packet need to be sent out when receiving it
+    unordered_map<uint16_t, ForwardTableEntry> forward_table;   // other router id --- the next router a packet need to be sent out when receiving it
     unordered_map<uint16_t, DVEntry> DV_table;  // other router id --- cost from this router to OTHER routers
 
 private:
+    // Additional Helper Functions Implemented by Our team
     void init_pingpong();
 
+    void recv_ping_packet(unsigned short port, void *packet, unsigned short size);
+
+    void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
+
+    void recv_data(unsigned short port, void *packet, unsigned short size);
 
 };
 
