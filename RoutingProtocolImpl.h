@@ -6,8 +6,9 @@
 #include "Node.h"
 
 class RoutingProtocolImpl : public RoutingProtocol {
-  public:
+public:
     RoutingProtocolImpl(Node *n);
+
     ~RoutingProtocolImpl();
 
     void init(unsigned short num_ports, unsigned short router_id, eProtocolType protocol_type);
@@ -42,9 +43,8 @@ class RoutingProtocolImpl : public RoutingProtocol {
 
     void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
 
-    void init_pingpong();
 
- private:
+private:
     Node *sys; // To store Node object; used to access GSR9999 interfaces
 
     unsigned short num_ports;
@@ -52,6 +52,15 @@ class RoutingProtocolImpl : public RoutingProtocol {
     eProtocolType packet_type;
 
     vector<PortEntry> port_graph;
+
+    unordered_map<uint16_t, DirectNeighborEntry> direct_neighbor_map;   // other router id --- DirectNeighbor   PHYSICAL
+    unordered_map<uint16_t, ForwardTableEntry> forward_table;   // other router id --- the port a packet need to be sent out when receiving it
+    unordered_map<uint16_t, DVEntry> DV_table;  // other router id --- cost from this router to OTHER routers
+
+private:
+    void init_pingpong();
+
+
 };
 
 #endif

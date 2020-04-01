@@ -19,12 +19,12 @@ void RoutingProtocolImpl::init(unsigned short num_ports, unsigned short router_i
     for (int i = 0; i < num_ports; i++) {
         PortEntry port;
         port.cost = 0;
-        port.dest_port = 0;
         port.last_update_time = 0;
         port_graph.push_back(port);
     }
-
     init_pingpong();
+
+    // TODO deal with alarm
 }
 
 void RoutingProtocolImpl::handle_alarm(void *data) {
@@ -44,7 +44,10 @@ void RoutingProtocolImpl::recv(unsigned short port, void *packet, unsigned short
     } else if (recv_pkt_type == PONG) {
         recv_pong_packet(port, packet, size);
     } else if (recv_pkt_type == DV) {
-        // recv_distance_vector()
+        // re-calculate all the distance from current node
+
+
+//         recv_distance_vector()
     } else if (recv_pkt_type == LS) {
         // recv_link_state()
     }
@@ -64,16 +67,35 @@ void RoutingProtocolImpl::recv_ping_packet(unsigned short port, void *packet, un
 }
 
 void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, unsigned short size) {
+    /*
+     * 1. calculate RTT
+     * 2. Update Direct Neighbor
+     * 3. diff = RTT - old RTT
+     * 4. If diff != 0:
+     *      update DV_table
+     *      update Forward_table
+     *      send DV packet
+     *    else:
+     *      do nothing
+     */
+
     char *recv_packet = (char *) packet;
-    // get rtt: recv_timestamp is the timestamp where PING sent, curr - get_time measure the RTT.
+
+    // Get rtt: recv_timestamp is the timestamp where PING sent, curr - get_time measure the RTT.
     unsigned int current_time = sys->time();
     unsigned int get_time = ntohs(*(uint16_t *) (recv_packet + 8));
     unsigned int rtt = current_time - get_time;
+
+    uint16_t sourceRouterID = *(uint16_t *) (recv_packet + 4);
+    port_graph[port].to_router_id = sourceRouterID;
     port_graph[port].last_update_time = current_time;
 
-    // TODO: We want the source ID
-    uint16_t fromID = *(uint16_t *) (recv_packet + 4);
-    port_graph[port].dest_port = fromID;
+    unsigned int prev_cost = port_graph[port].cost;
+    port_graph[port].cost = rtt;    // update cost
+    unsigned diff = rtt - prev_cost;
+
+    // Update direct_neighbor_map
+    bool sourceRouterInMap = direct_neighbor_map.count();
 
 }
 
