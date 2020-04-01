@@ -92,10 +92,33 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
 
     unsigned int prev_cost = port_graph[port].cost;
     port_graph[port].cost = rtt;    // update cost
-    unsigned diff = rtt - prev_cost;
+    unsigned cost_diff = rtt - prev_cost;
 
     // Update direct_neighbor_map
-    bool sourceRouterInMap = direct_neighbor_map.count();
+    bool sourceRouterInMap = direct_neighbor_map.count(sourceRouterID) != 0;
+    if (!sourceRouterInMap) {
+        DirectNeighborEntry dn;
+        dn.cost = rtt;
+        dn.router_id = sourceRouterID;
+        dn.port_num = port;
+        direct_neighbor_map[sourceRouterID] = dn;
+    } else {
+        DirectNeighborEntry * dn = &direct_neighbor_map[sourceRouterID];
+        dn->port_num = port;
+        dn->router_id = sourceRouterID;
+        dn->cost = rtt;
+    }
+
+
+    if (cost_diff == 0) {
+        // Do nothing
+    } else {
+        // Update DV table
+
+        // Update Forward Table
+
+        // Send DV packet
+    }
 
 }
 
