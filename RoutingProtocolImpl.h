@@ -49,7 +49,6 @@ private:
     eProtocolType packet_type;
 
     vector<PortEntry> port_graph;
-
     unordered_map<uint16_t, DirectNeighborEntry> direct_neighbor_map;   // other router id --- DirectNeighbor   PHYSICAL
     unordered_map<uint16_t, ForwardTableEntry> forward_table;   // other router id --- the next router a packet need to be sent out when receiving it
     unordered_map<uint16_t, DVEntry> DV_table;  // other router id --- cost from this router to OTHER routers
@@ -63,6 +62,13 @@ private:
     void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
 
     void recv_data(unsigned short port, void *packet, unsigned short size);
+
+
+    void send_dv_packet();
+
+
+    // Helper functions:
+    bool createEntryIfNotExists(uint16_t sourceID, unsigned int cost);
 
 };
 

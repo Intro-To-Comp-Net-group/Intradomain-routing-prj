@@ -7,10 +7,12 @@
 
 #include "global.h"
 
+#define NO_NEIGHBOR_FLAG 0xffff
 #define PINGPONG_PACKET_SIZE 12
+#define PAYLOAD_POS 8
 
 struct PortEntry {
-    uint16_t to_router_id;
+    uint16_t direct_neighbor_id;
     unsigned int cost;
     unsigned int last_update_time;
 //    bool is_connect;
@@ -28,7 +30,7 @@ struct DVEntry {
 };
 
 struct ForwardTableEntry {
-    uint16_t port_id;
+    uint16_t next_router_id;
 };
 
 #endif //PROJECT3_UTILS_H

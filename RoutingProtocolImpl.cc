@@ -19,6 +19,7 @@ void RoutingProtocolImpl::init(unsigned short num_ports, unsigned short router_i
     for (int i = 0; i < num_ports; i++) {
         PortEntry port;
         port.cost = 0;
+        port.direct_neighbor_id = NO_NEIGHBOR_FLAG;
         port.last_update_time = 0;
         port_graph.push_back(port);
     }
@@ -87,7 +88,7 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
     unsigned int rtt = current_time - get_time;
 
     uint16_t sourceRouterID = ntohs(*(uint16_t *) (recv_packet + 4));
-    port_graph[port].to_router_id = sourceRouterID;
+    port_graph[port].direct_neighbor_id = sourceRouterID;
     port_graph[port].last_update_time = current_time;
 
     unsigned int prev_cost = port_graph[port].cost;
@@ -103,31 +104,42 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
         dn.port_num = port;
         direct_neighbor_map[sourceRouterID] = dn;
     } else {
-        DirectNeighborEntry * dn = &direct_neighbor_map[sourceRouterID];
+        DirectNeighborEntry *dn = &direct_neighbor_map[sourceRouterID];
         dn->port_num = port;
         dn->router_id = sourceRouterID;
         dn->cost = rtt;
     }
 
-    if (this->packet_type == DV)
-    {
+    // Create forwarding entry and DV entry if not exists
+    if (this->packet_type == P_DV) {
+        bool hasCreateEntry = createEntryIfNotExists(sourceRouterID, rtt);
+        if (hasCreateEntry) {
+            send_dv_packet();
+            return;
+        }
+
         if (!isUpdate) {
             // Do nothing
             cout << "No change in cost, do nothing" << endl;
         } else {
             cout << "Cost change, update tables and send DV" << endl;
             // Update DV table
-
             // Update Forward Table
+            /*
+             *
+             *  2. The destination is in direct neighbor
+             *  3.
+             *
+             */
+
+
 
             // Send DV packet
+            send_dv_packet();
         }
-    }
-    else if (this->packet_type == LS)
-    {
+    } else if (this->packet_type == P_LS) {
 
-    }
-    else cout << "Unknown Packet Protocol Type" << endl;
+    } else cout << "Unknown Packet Protocol Type" << endl;
 
 }
 
@@ -157,7 +169,7 @@ void RoutingProtocolImpl::recv_data(unsigned short port, void *packet, unsigned 
         return;
     } else {
         if (forward_table.find(dest_router_id) != forward_table.end()) {
-            uint16_t next_router = forward_table[dest_router_id].port_id;
+            uint16_t next_router = forward_table[dest_router_id].next_router_id;
             DirectNeighborEntry next_router_entry = direct_neighbor_map[next_router];
             uint16_t out_port = next_router_entry.port_num;
             unsigned int link_cost = next_router_entry.cost;
@@ -165,6 +177,92 @@ void RoutingProtocolImpl::recv_data(unsigned short port, void *packet, unsigned 
             else sys->send(out_port, data_to_flood, size);
         } else return;
     }
+}
+
+
+//************************************************************************************************//
+//************************************************************************************************//
+// HELPER FUNCTION AREA
+//************************************************************************************************//
+//************************************************************************************************//
+
+bool RoutingProtocolImpl::createEntryIfNotExists(uint16_t sourceID, unsigned int cost) {
+    // Search through forwarding_table, if not exists, update DV_table and fwd_table
+    bool entryExists = false;
+    if (forward_table.count(sourceID) == 0) {
+        entryExists = true;
+    }
+    if (entryExists) return false;
+    else {
+        // Forwarding table
+        ForwardTableEntry fwdEntry;
+        fwdEntry.next_router_id = sourceID;
+        forward_table[sourceID] = fwdEntry;
+
+        // DV table
+        DVEntry dvEntry;
+        dvEntry.cost = cost;
+        dvEntry.next_hop = sourceID;
+        DV_table[sourceID] = dvEntry;
+
+        return true;
+    }
+}
+
+void RoutingProtocolImpl::send_dv_packet() {
+    vector<pair<uint16_t, unsigned int>> dest_to_send;
+    uint16_t vec_size = 0;
+    for (auto dv_pair: DV_table) {
+        uint16_t dest_id = dv_pair.first;
+        auto entry = dv_pair.second;
+        if (entry.cost != INFINITY_COST) {
+            vec_size += 1;
+            pair<uint16_t, unsigned int> dest_pair;
+            dest_pair.first = dest_id;
+            dest_pair.second = entry.cost;
+            dest_to_send.push_back(dest_pair);
+        }
+    }
+    uint16_t send_size = vec_size * 4 + PAYLOAD_POS;
+
+    for (uint16_t i = 0; i < num_ports; i++) {
+        PortEntry port = port_graph[i];
+        if (port.cost != INFINITY_COST && port.direct_neighbor_id != NO_NEIGHBOR_FLAG) {
+            char *dv_packet = (char *) malloc(send_size * sizeof(char));
+            *(ePacketType *) dv_packet = DV;
+            *(uint16_t *) (dv_packet + 2) = htons(send_size);
+            *(uint16_t *) (dv_packet + 4) = htons(this->router_id);
+            *(uint16_t *) (dv_packet + 6) = htons(port.direct_neighbor_id);
+
+            int pos = PAYLOAD_POS;
+            for (uint16_t j = 0; j < vec_size; j++) {
+                auto dest_pair = dest_to_send[j];
+                uint16_t dest_id = dest_pair.first;
+                unsigned int cost = dest_pair.second;
+
+                *(uint16_t *) (dv_packet + pos) = htons(dest_id);
+//                *(uint16_t *) (dv_packet + pos + 2) = htons((uint16_t) cost);
+
+                auto direct_neighbor_entry = direct_neighbor_map[dest_id];
+                // Poison reverse
+                if (direct_neighbor_entry.port_num == i) {
+                    *(uint16_t *) (dv_packet + pos + 2) = htons((uint16_t) INFINITY_COST);
+                } else {
+                    *(uint16_t *) (dv_packet + pos + 2) = htons((uint16_t) cost);
+                }
+
+                pos += 4;
+            }
+
+            sys->send(i, dv_packet, send_size);
+        }
+    }
+
+//    char * dv_packet = (char *) malloc(send_size * sizeof(char));
+//    *(char *) dv_packet = DV;
+//    *(uint16_t *) (dv_packet + 2) = htons(send_size);
+//    *(uint16_t *) (dv_packet + 4) = htons(this->router_id);
+//    *(unsigned int *) (dv_packet + 8) = htons(sys->time());
 }
 
 
