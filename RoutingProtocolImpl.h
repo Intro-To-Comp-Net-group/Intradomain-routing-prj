@@ -63,6 +63,9 @@ private:
 
     void recv_data(unsigned short port, void *packet, unsigned short size);
 
+    void recv_dv_packet(unsigned short port, void *packet, unsigned short size);
+
+    void recv_ls_packet(unsigned short port, void *packet, unsigned short size);
 
     void send_dv_packet();
 

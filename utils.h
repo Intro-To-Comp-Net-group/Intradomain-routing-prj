@@ -15,7 +15,6 @@ struct PortEntry {
     uint16_t direct_neighbor_id;
     unsigned int cost;
     unsigned int last_update_time;
-//    bool is_connect;
 };
 
 struct DirectNeighborEntry {
@@ -31,6 +30,10 @@ struct DVEntry {
 
 struct ForwardTableEntry {
     uint16_t next_router_id;
+
+    ForwardTableEntry(uint16_t router_id) {
+        this->next_router_id = router_id;
+    }
 };
 
 #endif //PROJECT3_UTILS_H
