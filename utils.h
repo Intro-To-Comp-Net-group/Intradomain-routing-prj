@@ -15,6 +15,7 @@ struct PortEntry {
     uint16_t direct_neighbor_id;
     unsigned int cost;
     unsigned int last_update_time;
+    bool isConnected;
 };
 
 struct DirectNeighborEntry {
