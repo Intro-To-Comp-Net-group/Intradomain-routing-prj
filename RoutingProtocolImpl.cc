@@ -106,11 +106,17 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
             int cost_update = rtt - prev_cost;
             if (cost_update == 0) { // No change
                 // Do nothing
-                cout << "No change in cost, do nothing" << endl;
+                cout << "No change in cost, just update the time directly related to sourceID in DV_table" << endl;
+                for (auto & it_pair : DV_table) {
+                    uint16_t dest_id = it_pair.first;
+                    DVEntry &dv_entry = it_pair.second;
+                    if (sourceRouterID == dv_entry.next_hop || sourceRouterID == dest_id)
+                        dv_entry.last_update_time = sys->time();
+                }
             } else if (cost_update < 0) {
-                for (auto it = DV_table.begin(); it != DV_table.end(); it++) {
-                    uint16_t dest_id = it->first;
-                    DVEntry &dv_entry = it->second;
+                for (auto & it_pair : DV_table) {
+                    uint16_t dest_id = it_pair.first;
+                    DVEntry &dv_entry = it_pair.second;
                     if (dv_entry.next_hop == sourceRouterID) {
                         // 本来就是最短的，变短了说明routing不变，更新DV table的cost即可
                         dv_entry.cost = rtt;
@@ -122,12 +128,13 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
                         ForwardTableEntry newFWDEntry(sourceRouterID);
                         forward_table[dest_id] = newFWDEntry;
                     }
+                    dv_entry.last_update_time = sys->time();
                 }
                 send_dv_packet();
             } else {
-                for (auto it = DV_table.begin(); it != DV_table.end(); it++) {
-                    uint16_t dest_id = it->first;
-                    DVEntry &dv_entry = it->second;
+                for (auto & it_pair : DV_table) {
+                    uint16_t dest_id = it_pair.first;
+                    DVEntry &dv_entry = it_pair.second;
                     if (dv_entry.next_hop == sourceRouterID) {  // The source is a next_hop of some destinations in DV_table
                         unsigned int rtt2 = cost_update + dv_entry.cost;
                         // If a direct neighbor is better (direct_neighbor[dest_id].cost < dv_entry.cost + cost_update)
@@ -148,13 +155,15 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
                         ForwardTableEntry newFWDEntry(sourceRouterID);
                         forward_table[dest_id] = newFWDEntry;
                     }
+                    dv_entry.last_update_time = sys->time();
                 }
                 send_dv_packet();
             }
         } else {
             if (rtt < DV_table[sourceRouterID].cost) {  // If direct_neighbor is better
-                DV_table[sourceRouterID].cost = rtt;
-//                DV_table[sourceRouterID].next_hop
+                DVEntry * dv_entry = &DV_table[sourceRouterID];
+                dv_entry->cost = rtt;
+                dv_entry->last_update_time = sys->time();
                 send_dv_packet();
             }
         }
@@ -208,22 +217,87 @@ void RoutingProtocolImpl::recv_dv_packet(unsigned short port, void *packet, unsi
 
     // Create neighbor entry if not exists
     bool findNeighbor = direct_neighbor_map.count(fromRouterID) != 0;
-    if (!findNeighbor) {
-        DirectNeighborEntry entry;
-        unsigned int cost_to_fill;
-        for (auto dv_pair: dv_entry_vec) {
-            uint16_t dest_id = dv_pair.first;
-            uint16_t cost = dv_pair.second;
-            if (dest_id == router_id) {
-                cost_to_fill = cost;
+//    if (!findNeighbor) {
+//        DirectNeighborEntry entry;
+//        unsigned int cost_to_fill;
+//        for (auto dv_pair: dv_entry_vec) {
+//            uint16_t dest_id = dv_pair.first;
+//            uint16_t cost = dv_pair.second;
+//            if (dest_id == router_id) {
+//                cost_to_fill = cost;
+//            }
+//        }
+//        entry.port_num = port;
+//        entry.router_id = router_id;
+//        entry.cost = cost_to_fill;
+//
+//        direct_neighbor_map[fromRouterID] = entry;
+//    }
+
+    /*
+     * DV logic
+     * A收到C来的dvpacket，如果D不再A的dvtable里面，那么想去D只能通过C，也就是 7 + 1 = 8， 更新
+     *  如果已有：
+     *      1。收到的DVentry的Dest——id = A，忽略
+     *      2。比较：原有到B的距离好 vs 通过C到达B距离好
+     *
+     */
+
+    if (!findNeighbor) return;
+    else {
+        for (pair<uint16_t, uint16_t> recv_pair: dv_entry_vec) {
+            uint16_t node_id = recv_pair.first;
+            uint16_t cost = recv_pair.second;
+            if (node_id == this->router_id) continue;   // Itself!
+            else if (DV_table.count(node_id) == 0) {    // node_id not exists in DV_Table
+                // Just add it
+                unsigned int cost_to_source = DV_table[fromRouterID].cost;
+                unsigned int new_route_cost = cost + cost_to_source;
+
+                DVEntry dv_entry;
+                dv_entry.cost = new_route_cost;
+                dv_entry.next_hop = fromRouterID;
+                dv_entry.last_update_time = sys->time();
+                DV_table[node_id] = dv_entry;
+
+                ForwardTableEntry fwd_entry(fromRouterID);
+                forward_table[node_id] = fwd_entry;
+            } else {    // node_id is in the DV_table
+                // Update DV_table if the new route is better
+                unsigned int cost_to_source = DV_table[fromRouterID].cost;
+                unsigned int new_route_cost = cost_to_source + cost;
+                unsigned int old_route_cost = DV_table[node_id].cost;
+                if (old_route_cost <= new_route_cost) {
+                    // Origin is better, no need to update, just update time
+                } else {
+                    DV_table[node_id].cost = new_route_cost;
+                    DV_table[node_id].next_hop = fromRouterID;
+
+                    ForwardTableEntry fwd_entry(fromRouterID);
+                    forward_table[node_id] = fwd_entry;
+                }
+                DV_table[node_id].last_update_time = sys->time();
             }
         }
-        entry.port_num = port;
-        entry.router_id = router_id;
-        entry.cost = cost_to_fill;
-
-        direct_neighbor_map[fromRouterID] = entry;
     }
+
+
+    /*
+     * PONG:
+     * DV
+     *  如果B收到C发来的一个dvPacket，首先在B内部把C的dvtable中nextHop为B的entry改为INFINITY——COST
+     *
+     */
+//    dv_entry_vec;
+//    unordered_map<uint16_t, DVEntry> tmp_map;
+//    for (auto &s: dv_entry_vec) {
+//        if (entry.nextHop == B) {
+//            int tmp_cost = INFINITY_COST;
+//        }
+//        tmp_map[node_id] = tmp_cost;
+//    }
+//
+//    // A vs cost(D) + A
 
 }
 

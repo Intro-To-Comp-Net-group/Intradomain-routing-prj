@@ -27,6 +27,7 @@ struct DirectNeighborEntry {
 struct DVEntry {
     uint16_t next_hop;
     unsigned int cost;
+    unsigned int last_update_time;
 };
 
 struct ForwardTableEntry {
