@@ -3,10 +3,17 @@
 RoutingProtocolImpl::RoutingProtocolImpl(Node *n) : RoutingProtocol(n) {
     sys = n;
     // add your own code
+    alarmHandler = new AlarmHandler();
+
+//    pingpong_alarm_data = (eAlarmType *) malloc(sizeof(char));
+//    expire_alarm_data = (eAlarmType *) malloc(sizeof(char));
+//    dv_update_alarm_data = (eAlarmType *) malloc(sizeof(char));
+//    ls_update_alarm_data = (eAlarmType *) malloc(sizeof(char));
 }
 
 RoutingProtocolImpl::~RoutingProtocolImpl() {
     // add your own code (if needed)
+    delete alarmHandler;
 }
 
 void RoutingProtocolImpl::init(unsigned short num_ports, unsigned short router_id, eProtocolType protocol_type) {
@@ -26,12 +33,43 @@ void RoutingProtocolImpl::init(unsigned short num_ports, unsigned short router_i
     }
     init_pingpong();
 
-    // TODO deal with alarm
+    alarmHandler->init_alarm(sys,this);
+//    sys->set_alarm(this, 10000, (void*) pingpong_alarm_data);
+//    sys->set_alarm(this, 30000, (void*) dv_update_alarm_data);
+//    sys->set_alarm(this, 1000, (void*) expire_alarm_data);
 }
 
 void RoutingProtocolImpl::handle_alarm(void *data) {
     // add your own code
-    char alarm_type = ((char *) data)[0];
+    eAlarmType alarm_type = *(eAlarmType *) data;
+
+    if (alarm_type == PINGPONG_ALARM) {
+        init_pingpong();
+        sys->set_alarm(this, 10 * SECOND, data);
+    } else if (alarm_type == EXPIRE_ALARM) {
+        if (packet_type == P_DV) {
+            //TODO: handle DV expire
+
+        } else if (packet_type == P_LS) {
+            // TODO: handle LS expire
+        }
+        sys->set_alarm(this, 1 * SECOND, data);
+    } else if (alarm_type == DV_UPDATE_ALARM) {
+        if (packet_type == P_DV) {
+            //TODO: handle DV_update_alarm
+
+        }
+        sys->set_alarm(this, 30 * SECOND, data);
+    } else if (alarm_type == LS_UPDATE_ALARM) {
+        if (packet_type == P_LS) {
+            //TODO: handle ls_update_alarm
+
+        }
+        sys->set_alarm(this, 30 * SECOND, data);
+    } else {
+        cout << "Alarm type not acceptable. " << endl;
+        exit(1);
+    }
 }
 
 void RoutingProtocolImpl::recv(unsigned short port, void *packet, unsigned short size) {
@@ -46,22 +84,22 @@ void RoutingProtocolImpl::recv(unsigned short port, void *packet, unsigned short
     } else if (recv_pkt_type == PONG) {
         recv_pong_packet(port, packet, size);
     } else if (recv_pkt_type == DV) {
-        recv_dv_packet(port, packet, size);
+//        recv_dv_packet(port, packet, size);
     } else if (recv_pkt_type == LS) {
-        recv_ls_packet(port, packet, size);
+//        recv_ls_packet(port, packet, size);
     }
 }
 
 void RoutingProtocolImpl::recv_ping_packet(unsigned short port, void *packet, unsigned short size) {
     char *pong_to_send = (char *) packet;
     uint16_t from_port_id = ntohs(*(uint16_t *) (pong_to_send + 4));
-    unsigned int recv_time = ntohs(*(unsigned int *) (pong_to_send + 8));
+    unsigned int recv_time = ntohl(*(unsigned int *) (pong_to_send + 8));
     // Send back pong packet
     *(char *) pong_to_send = PONG;
     *(uint16_t *) (pong_to_send + 2) = htons(12);
     *(uint16_t *) (pong_to_send + 4) = htons(this->router_id);
     *(uint16_t *) (pong_to_send + 6) = htons(from_port_id);
-    *(unsigned int *) (pong_to_send + 8) = htons(recv_time);
+    *(unsigned int *) (pong_to_send + 8) = htonl(recv_time);
     sys->send(port, pong_to_send, PINGPONG_PACKET_SIZE);
 }
 
@@ -70,8 +108,20 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
 
     // Get rtt: recv_timestamp is the timestamp where PING sent, curr - get_time measure the RTT.
     unsigned int current_time = sys->time();
-    unsigned int get_time = ntohs(*(uint16_t *) (recv_packet + 8));
+    unsigned int get_time = ntohl(*(unsigned int *) (recv_packet + 8));
     unsigned int rtt = current_time - get_time;
+
+    // DEBUG FLAG
+    cout << endl;
+    cout << "RTT IS: "<< rtt << " Current time is " << current_time << " recv_time "<< get_time << endl;
+    for (auto entryP: DV_table) {
+        auto dest_id = entryP.first;
+        DVEntry entry = entryP.second;
+        cout << "For router "<<router_id << " DEST NODE ID: "<< dest_id << " COST: " << entry.cost << " NEXTHOP: " << entry.next_hop << " ";
+    }
+    cout << endl;
+    // DEBUG FLAG END
+
 
     uint16_t sourceRouterID = ntohs(*(uint16_t *) (recv_packet + 4));
     bool isConnected = port_graph[port].direct_neighbor_id != NO_NEIGHBOR_FLAG;
@@ -106,15 +156,15 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
             int cost_update = rtt - prev_cost;
             if (cost_update == 0) { // No change
                 // Do nothing
-                cout << "No change in cost, just update the time directly related to sourceID in DV_table" << endl;
-                for (auto & it_pair : DV_table) {
+//                cout << "No change in cost, just update the time directly related to sourceID in DV_table" << endl;
+                for (auto &it_pair : DV_table) {
                     uint16_t dest_id = it_pair.first;
                     DVEntry &dv_entry = it_pair.second;
                     if (sourceRouterID == dv_entry.next_hop || sourceRouterID == dest_id)
                         dv_entry.last_update_time = sys->time();
                 }
             } else if (cost_update < 0) {
-                for (auto & it_pair : DV_table) {
+                for (auto &it_pair : DV_table) {
                     uint16_t dest_id = it_pair.first;
                     DVEntry &dv_entry = it_pair.second;
                     if (dv_entry.next_hop == sourceRouterID) {
@@ -125,17 +175,20 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
                         dv_entry.cost = rtt;
                         dv_entry.next_hop = sourceRouterID;
 
-                        ForwardTableEntry newFWDEntry(sourceRouterID);
+//                        ForwardTableEntry newFWDEntry(sourceRouterID);
+                        ForwardTableEntry newFWDEntry;
+                        newFWDEntry.next_router_id = sourceRouterID;
                         forward_table[dest_id] = newFWDEntry;
                     }
                     dv_entry.last_update_time = sys->time();
                 }
                 send_dv_packet();
             } else {
-                for (auto & it_pair : DV_table) {
+                for (auto &it_pair : DV_table) {
                     uint16_t dest_id = it_pair.first;
                     DVEntry &dv_entry = it_pair.second;
-                    if (dv_entry.next_hop == sourceRouterID) {  // The source is a next_hop of some destinations in DV_table
+                    if (dv_entry.next_hop ==
+                        sourceRouterID) {  // The source is a next_hop of some destinations in DV_table
                         unsigned int rtt2 = cost_update + dv_entry.cost;
                         // If a direct neighbor is better (direct_neighbor[dest_id].cost < dv_entry.cost + cost_update)
                         unsigned int direct_neighbor_cost = direct_neighbor_map[dest_id].cost;
@@ -143,7 +196,9 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
                             dv_entry.next_hop = dest_id;
                             dv_entry.cost = direct_neighbor_cost;
 
-                            ForwardTableEntry newFWDEntry(dest_id);
+//                            ForwardTableEntry newFWDEntry(dest_id);
+                            ForwardTableEntry newFWDEntry;
+                            newFWDEntry.next_router_id = dest_id;
                             forward_table[dest_id] = newFWDEntry;
                         } else {    // Else: update cost but still use the current route
                             dv_entry.cost = rtt2;
@@ -152,7 +207,9 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
                         dv_entry.cost = rtt;
                         dv_entry.next_hop = sourceRouterID;
 
-                        ForwardTableEntry newFWDEntry(sourceRouterID);
+//                        ForwardTableEntry newFWDEntry(sourceRouterID);
+                        ForwardTableEntry newFWDEntry;
+                        newFWDEntry.next_router_id = sourceRouterID;
                         forward_table[dest_id] = newFWDEntry;
                     }
                     dv_entry.last_update_time = sys->time();
@@ -161,7 +218,7 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
             }
         } else {
             if (rtt < DV_table[sourceRouterID].cost) {  // If direct_neighbor is better
-                DVEntry * dv_entry = &DV_table[sourceRouterID];
+                DVEntry *dv_entry = &DV_table[sourceRouterID];
                 dv_entry->cost = rtt;
                 dv_entry->last_update_time = sys->time();
                 send_dv_packet();
@@ -198,7 +255,7 @@ void RoutingProtocolImpl::recv_data(unsigned short port, void *packet, unsigned 
 
 
 void RoutingProtocolImpl::recv_dv_packet(unsigned short port, void *packet, unsigned short size) {
-    char * dv_packet = (char *) packet;
+    char *dv_packet = (char *) packet;
     uint16_t packet_size = ntohs(*(uint16_t *) (dv_packet + 2));
     uint16_t fromRouterID = ntohs(*(uint16_t *) (dv_packet + 4));
     uint16_t toRouterID = ntohs(*(uint16_t *) (dv_packet + 6));
@@ -234,15 +291,6 @@ void RoutingProtocolImpl::recv_dv_packet(unsigned short port, void *packet, unsi
 //        direct_neighbor_map[fromRouterID] = entry;
 //    }
 
-    /*
-     * DV logic
-     * A收到C来的dvpacket，如果D不再A的dvtable里面，那么想去D只能通过C，也就是 7 + 1 = 8， 更新
-     *  如果已有：
-     *      1。收到的DVentry的Dest——id = A，忽略
-     *      2。比较：原有到B的距离好 vs 通过C到达B距离好
-     *
-     */
-
     if (!findNeighbor) return;
     else {
         for (pair<uint16_t, uint16_t> recv_pair: dv_entry_vec) {
@@ -251,54 +299,45 @@ void RoutingProtocolImpl::recv_dv_packet(unsigned short port, void *packet, unsi
             if (node_id == this->router_id) continue;   // Itself!
             else if (DV_table.count(node_id) == 0) {    // node_id not exists in DV_Table
                 // Just add it
-                unsigned int cost_to_source = DV_table[fromRouterID].cost;
-                unsigned int new_route_cost = cost + cost_to_source;
+                if (cost != INFINITY_COST) {
+                    unsigned int cost_to_source = DV_table[fromRouterID].cost;
+                    unsigned int new_route_cost = cost + cost_to_source;
 
-                DVEntry dv_entry;
-                dv_entry.cost = new_route_cost;
-                dv_entry.next_hop = fromRouterID;
-                dv_entry.last_update_time = sys->time();
-                DV_table[node_id] = dv_entry;
+                    DVEntry dv_entry;
+                    dv_entry.cost = new_route_cost;
+                    dv_entry.next_hop = fromRouterID;
+                    dv_entry.last_update_time = sys->time();
+                    DV_table[node_id] = dv_entry;
 
-                ForwardTableEntry fwd_entry(fromRouterID);
-                forward_table[node_id] = fwd_entry;
-            } else {    // node_id is in the DV_table
-                // Update DV_table if the new route is better
-                unsigned int cost_to_source = DV_table[fromRouterID].cost;
-                unsigned int new_route_cost = cost_to_source + cost;
-                unsigned int old_route_cost = DV_table[node_id].cost;
-                if (old_route_cost <= new_route_cost) {
-                    // Origin is better, no need to update, just update time
-                } else {
-                    DV_table[node_id].cost = new_route_cost;
-                    DV_table[node_id].next_hop = fromRouterID;
-
-                    ForwardTableEntry fwd_entry(fromRouterID);
+//                    ForwardTableEntry fwd_entry(fromRouterID);
+                    ForwardTableEntry fwd_entry;
+                    fwd_entry.next_router_id = fromRouterID;
                     forward_table[node_id] = fwd_entry;
                 }
-                DV_table[node_id].last_update_time = sys->time();
+            } else {    // node_id is in the DV_table
+                if (cost != INFINITY_COST) {
+                    // Update DV_table if the new route is better
+                    unsigned int cost_to_source = DV_table[fromRouterID].cost;
+                    unsigned int new_route_cost = cost_to_source + cost;
+                    unsigned int old_route_cost = DV_table[node_id].cost;
+                    if (new_route_cost < old_route_cost) {
+                        DV_table[node_id].cost = new_route_cost;
+                        DV_table[node_id].next_hop = fromRouterID;
+
+//                        ForwardTableEntry fwd_entry(fromRouterID);
+                        ForwardTableEntry fwd_entry;
+                        fwd_entry.next_router_id = fromRouterID;
+                        forward_table[node_id] = fwd_entry;
+                    }
+                    DV_table[node_id].last_update_time = sys->time();
+                } else {    // INFINITY COST, poison reverse
+                    DV_table[node_id].last_update_time = sys->time();
+                }
+
             }
         }
+        send_dv_packet();
     }
-
-
-    /*
-     * PONG:
-     * DV
-     *  如果B收到C发来的一个dvPacket，首先在B内部把C的dvtable中nextHop为B的entry改为INFINITY——COST
-     *
-     */
-//    dv_entry_vec;
-//    unordered_map<uint16_t, DVEntry> tmp_map;
-//    for (auto &s: dv_entry_vec) {
-//        if (entry.nextHop == B) {
-//            int tmp_cost = INFINITY_COST;
-//        }
-//        tmp_map[node_id] = tmp_cost;
-//    }
-//
-//    // A vs cost(D) + A
-
 }
 
 
@@ -319,7 +358,8 @@ void RoutingProtocolImpl::init_pingpong() {
         *(char *) ping_packet = PING;
         *(uint16_t *) (ping_packet + 2) = htons(12);
         *(uint16_t *) (ping_packet + 4) = htons(this->router_id);
-        *(unsigned int *) (ping_packet + 8) = htons(sys->time());
+        *(unsigned int *) (ping_packet + 8) = htonl(sys->time());
+        cout << "PING: send_Time: " << sys->time() <<endl;
         sys->send(i, ping_packet, PINGPONG_PACKET_SIZE);
     }
 }
@@ -333,7 +373,9 @@ bool RoutingProtocolImpl::createEntryIfNotExists(uint16_t sourceID, unsigned int
     if (entryExists) return false;
     else {
         // Forwarding table
-        ForwardTableEntry fwdEntry(sourceID);
+//        ForwardTableEntry fwdEntry(sourceID);
+        ForwardTableEntry fwdEntry;
+        fwdEntry.next_router_id = sourceID;
         forward_table[sourceID] = fwdEntry;
 
         // DV table
@@ -352,21 +394,22 @@ void RoutingProtocolImpl::send_dv_packet() {
     for (auto dv_pair: DV_table) {
         uint16_t dest_id = dv_pair.first;
         auto entry = dv_pair.second;
-        if (entry.cost != INFINITY_COST) {
-            vec_size += 1;
-            dest_to_send.push_back(dest_id);
-        }
+//        if (entry.cost != INFINITY_COST) {
+        vec_size += 1;
+        dest_to_send.push_back(dest_id);
+//        }
     }
     uint16_t send_size = vec_size * 4 + PAYLOAD_POS;
 
     for (uint16_t i = 0; i < num_ports; i++) {
         PortEntry port = port_graph[i];
         if (port.cost != INFINITY_COST && port.direct_neighbor_id != NO_NEIGHBOR_FLAG) {
+            uint16_t dest_router_id = port.direct_neighbor_id;
             char *dv_packet = (char *) malloc(send_size * sizeof(char));
             *(ePacketType *) dv_packet = DV;
             *(uint16_t *) (dv_packet + 2) = htons(send_size);
             *(uint16_t *) (dv_packet + 4) = htons(this->router_id);
-            *(uint16_t *) (dv_packet + 6) = htons(port.direct_neighbor_id);
+            *(uint16_t *) (dv_packet + 6) = htons(dest_router_id);
 
             int pos = PAYLOAD_POS;
             for (uint16_t j = 0; j < vec_size; j++) {
@@ -375,8 +418,9 @@ void RoutingProtocolImpl::send_dv_packet() {
 
                 *(uint16_t *) (dv_packet + pos) = htons(dest_id);
                 // Poison reverse
-                auto direct_neighbor_entry = direct_neighbor_map[dest_id];
-                cost = (direct_neighbor_entry.port_num == i)? INFINITY_COST: cost;
+//                auto direct_neighbor_entry = direct_neighbor_map[dest_id];
+//                cost = (direct_neighbor_entry.port_num == i) ? INFINITY_COST : cost;
+                cost = (dest_router_id == DV_table[dest_id].next_hop) ? INFINITY_COST: cost;    // 当dest_router_id = entry.nextHop, CHANGE TO INFINITY_COST
                 *(uint16_t *) (dv_packet + pos + 2) = htons((uint16_t) cost);
 
                 pos += 4;

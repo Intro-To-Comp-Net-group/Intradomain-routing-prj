@@ -10,6 +10,14 @@
 #define NO_NEIGHBOR_FLAG 0xffff
 #define PINGPONG_PACKET_SIZE 12
 #define PAYLOAD_POS 8
+#define SECOND 1000
+
+enum eAlarmType {
+    PINGPONG_ALARM,
+    DV_UPDATE_ALARM,
+    LS_UPDATE_ALARM,
+    EXPIRE_ALARM
+};
 
 struct PortEntry {
     uint16_t direct_neighbor_id;
@@ -33,9 +41,9 @@ struct DVEntry {
 struct ForwardTableEntry {
     uint16_t next_router_id;
 
-    ForwardTableEntry(uint16_t router_id) {
-        this->next_router_id = router_id;
-    }
+//    ForwardTableEntry(uint16_t router_id) {
+//        this->next_router_id = router_id;
+//    }
 };
 
 #endif //PROJECT3_UTILS_H
