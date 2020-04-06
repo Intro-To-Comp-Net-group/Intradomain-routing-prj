@@ -82,6 +82,8 @@ private:
 
     bool createEntryIfNotExists(uint16_t sourceID, unsigned int cost);
 
+    void printDVTable();
+
 };
 
 #endif

@@ -14,6 +14,11 @@ public:
         expire_alarm_data = (eAlarmType *) malloc(sizeof(char));
         dv_update_alarm_data = (eAlarmType *) malloc(sizeof(char));
         ls_update_alarm_data = (eAlarmType *) malloc(sizeof(char));
+
+        *pingpong_alarm_data = PINGPONG_ALARM;
+        *expire_alarm_data = EXPIRE_ALARM;
+        *dv_update_alarm_data = DV_UPDATE_ALARM;
+        *ls_update_alarm_data = LS_UPDATE_ALARM;
     }
 
     ~AlarmHandler() {
