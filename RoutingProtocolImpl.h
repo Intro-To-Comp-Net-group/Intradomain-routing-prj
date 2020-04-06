@@ -76,8 +76,10 @@ private:
 
     void send_dv_packet();
 
+    void handle_port_expire();
 
-    // Helper functions:
+    void handle_dv_expire();
+
     bool createEntryIfNotExists(uint16_t sourceID, unsigned int cost);
 
 };

@@ -28,7 +28,6 @@ void RoutingProtocolImpl::init(unsigned short num_ports, unsigned short router_i
         port.cost = INFINITY_COST;
         port.direct_neighbor_id = NO_NEIGHBOR_FLAG;
         port.last_update_time = 0;
-//        port.isConnected = false;
         port_graph.push_back(port);
     }
     init_pingpong();
@@ -47,9 +46,10 @@ void RoutingProtocolImpl::handle_alarm(void *data) {
         init_pingpong();
         sys->set_alarm(this, 10 * SECOND, data);
     } else if (alarm_type == EXPIRE_ALARM) {
+        handle_port_expire();
         if (packet_type == P_DV) {
             //TODO: handle DV expire
-
+            handle_dv_expire();
         } else if (packet_type == P_LS) {
             // TODO: handle LS expire
         }
@@ -57,7 +57,7 @@ void RoutingProtocolImpl::handle_alarm(void *data) {
     } else if (alarm_type == DV_UPDATE_ALARM) {
         if (packet_type == P_DV) {
             //TODO: handle DV_update_alarm
-
+            send_dv_packet();
         }
         sys->set_alarm(this, 30 * SECOND, data);
     } else if (alarm_type == LS_UPDATE_ALARM) {
@@ -273,6 +273,7 @@ void RoutingProtocolImpl::recv_dv_packet(unsigned short port, void *packet, unsi
     }
 
     // Create neighbor entry if not exists
+    // TODO 是否有可能先接到DV packet后，才接到PONG？
     bool findNeighbor = direct_neighbor_map.count(fromRouterID) != 0;
 //    if (!findNeighbor) {
 //        DirectNeighborEntry entry;
@@ -418,8 +419,7 @@ void RoutingProtocolImpl::send_dv_packet() {
 
                 *(uint16_t *) (dv_packet + pos) = htons(dest_id);
                 // Poison reverse
-//                auto direct_neighbor_entry = direct_neighbor_map[dest_id];
-//                cost = (direct_neighbor_entry.port_num == i) ? INFINITY_COST : cost;
+//                cost = (direct_neighbor_map[dest_id].port_num == i) ? INFINITY_COST : cost;
                 cost = (dest_router_id == DV_table[dest_id].next_hop) ? INFINITY_COST: cost;    // 当dest_router_id = entry.nextHop, CHANGE TO INFINITY_COST
                 *(uint16_t *) (dv_packet + pos + 2) = htons((uint16_t) cost);
 
@@ -430,6 +430,37 @@ void RoutingProtocolImpl::send_dv_packet() {
         }
     }
 }
+
+void RoutingProtocolImpl::handle_port_expire() {
+    // 1 PORT EXPIRE
+    // Iterate through ports, disconnect some ports, remove entries in DVtable and DirectNeighbor Table
+    // remove all entries in DVtable whose next_hop is ports.to
+    // remove all entries in directNeighborTable connected to that expire port
+    for (PortEntry &port: port_graph) {
+        bool is_expire = (sys->time() - port.last_update_time) > 15 * SECOND;
+        bool is_connected = port.direct_neighbor_id != NO_NEIGHBOR_FLAG;
+        if (!is_connected || !is_expire) return;
+        port.last_update_time = sys->time();
+        port.direct_neighbor_id = NO_NEIGHBOR_FLAG;
+        port.cost = INFINITY_COST;
+        // DIRECT NEIGHBOR ?
+
+        // DV TABLE?
+    }
+
+}
+
+void RoutingProtocolImpl::handle_dv_expire() {
+
+
+    // 2 DV ENTRY EXPIRE
+
+    // 如果一个DV entry要被移除：
+    //      1。 看看DV entry的目的地在不在direct neighbor里，在的话就根据direct neighbor来更新dv entry
+    //      2。 如果不再DirectNeighbor，删除。这个时候，其他接收到updated DVtable的router，看到发来的router里面少了一个entry，会不会有什么问题？
+}
+
+
 
 
 // add more of your own code

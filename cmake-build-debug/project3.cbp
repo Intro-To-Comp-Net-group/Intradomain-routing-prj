@@ -82,6 +82,9 @@
 				</MakeCommands>
 			</Target>
 		</Build>
+		<Unit filename="/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/AlarmHandler.h">
+			<Option target="project3"/>
+		</Unit>
 		<Unit filename="/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Event.cc">
 			<Option target="project3"/>
 		</Unit>
@@ -113,9 +116,6 @@
 			<Option target="project3"/>
 		</Unit>
 		<Unit filename="/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Simulator.h">
-			<Option target="project3"/>
-		</Unit>
-		<Unit filename="/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/alarmHandler.h">
 			<Option target="project3"/>
 		</Unit>
 		<Unit filename="/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/global.h">
