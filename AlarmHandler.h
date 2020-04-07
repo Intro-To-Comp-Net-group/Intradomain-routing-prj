@@ -15,10 +15,6 @@ public:
         dv_update_alarm_data = (eAlarmType *) malloc(sizeof(char));
         ls_update_alarm_data = (eAlarmType *) malloc(sizeof(char));
 
-        *pingpong_alarm_data = PINGPONG_ALARM;
-        *expire_alarm_data = EXPIRE_ALARM;
-        *dv_update_alarm_data = DV_UPDATE_ALARM;
-        *ls_update_alarm_data = LS_UPDATE_ALARM;
     }
 
     ~AlarmHandler() {
@@ -29,6 +25,11 @@ public:
     }
 
     void init_alarm(Node * sys, RoutingProtocol * r) {
+        *pingpong_alarm_data = PINGPONG_ALARM;
+        *dv_update_alarm_data = DV_UPDATE_ALARM;
+        *ls_update_alarm_data = LS_UPDATE_ALARM;
+        * expire_alarm_data = EXPIRE_ALARM;
+
         sys->set_alarm(r, 10*SECOND, (void*) pingpong_alarm_data);
         sys->set_alarm(r, 30*SECOND, (void*) dv_update_alarm_data);
         sys->set_alarm(r, 1 *SECOND, (void*) expire_alarm_data);

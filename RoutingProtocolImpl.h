@@ -66,7 +66,10 @@ private:
 
     void recv_ping_packet(unsigned short port, void *packet, unsigned short size);
 
-    void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
+
+    void update_DV(int16_t dest_id,  unsigned int cost, uint16_t next_hop);
+    void update_forward(uint16_t dest_id,uint16_t next_hop);
+    void update_neighbor(uint16_t neighbor_id, unsigned int cost, uint16_t port_num);
 
     void recv_data(unsigned short port, void *packet, unsigned short size);
 
@@ -82,8 +85,18 @@ private:
 
     bool createEntryIfNotExists(uint16_t sourceID, unsigned int cost);
 
+
     void printDVTable();
 
+    void printNeighborTable();
+
+    void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
+
+    void insert_neighbor(uint16_t neighbor_id, unsigned int cost, uint16_t port_num);
+
+    void insert_DV(int16_t dest_id, unsigned int cost, uint16_t next_hop);
+
+    void insert_forward(uint16_t dest_id, uint16_t next_hop);
 };
 
 #endif

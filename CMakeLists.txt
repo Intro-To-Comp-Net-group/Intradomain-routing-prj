@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 include_directories(.)
 
 add_executable(project3
+        AlarmHandler.h
         Event.cc
         Event.h
         global.h
@@ -17,4 +18,5 @@ add_executable(project3
         RoutingProtocolImpl.cc
         RoutingProtocolImpl.h
         Simulator.cc
-        Simulator.h utils.h AlarmHandler.h)
+        Simulator.h
+        utils.h)
