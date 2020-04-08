@@ -97,65 +97,62 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
     port_graph[port].direct_neighbor_id = sourceRouterID;
     port_graph[port].last_update_time = current_time;
     port_graph[port].cost = rtt;    // update cost
-    bool table_changed = false;
+//    bool table_changed = false;
 
-    bool sourceRouterInMap = direct_neighbor_map.count(sourceRouterID) != 0;
-    if (!sourceRouterInMap) {
-        // not in direct neighbor
-        // insert intp neighbor directly
-        insert_neighbor(sourceRouterID, rtt, port);
-        if (DV_table.count(sourceRouterID) == 0) {
-            // also not exists in  DV ..insert into DV
-            insert_DV(sourceRouterID, direct_neighbor_map[sourceRouterID].cost, sourceRouterID);
-            insert_forward(sourceRouterID, sourceRouterID);
-        } else {
-            if (direct_neighbor_map[sourceRouterID].cost < DV_table[sourceRouterID].cost) {
-                // exist in DV but  current is smaller
-                update_DV(sourceRouterID, direct_neighbor_map[sourceRouterID].cost, sourceRouterID);
-                update_forward(sourceRouterID, sourceRouterID);
-            }
-        }
-    } else {
-        // we have DV and neighbor
-        DirectNeighborEntry *dn = &direct_neighbor_map[sourceRouterID];
-        int prev_cost = dn->cost;
-        update_neighbor(sourceRouterID, rtt, port);
-        int cur_cost = dn->cost;
-        int diff = cur_cost - prev_cost;
-        if (diff != 0) {
-            for (auto it = DV_table.begin(); it != DV_table.end(); ++it) {
-                unsigned int new_cost = diff + it->second.cost;
-                if (it->second.next_hop == sourceRouterID) {
-                    // the nodes pass the source
-                    if (direct_neighbor_map.count(it->first) != 0) {
-                        // in direct neighbor
-                        if (direct_neighbor_map[it->first].cost < diff) {
-                            update_DV(it->first, direct_neighbor_map[it->first].cost, it->first);
-                            update_forward(it->first, it->first);
-                        } else {
-                            // upodate the cost
-                            update_DV(it->first, new_cost, it->second.next_hop);
-                        }
-                    }
-                } else if (it->first == sourceRouterID && new_cost < DV_table[sourceRouterID].cost) {
-                    update_DV(sourceRouterID, new_cost, sourceRouterID);
+    if (packet_type == P_DV)
+    {
+        bool sourceRouterInMap = direct_neighbor_map.count(sourceRouterID) != 0;
+        if (!sourceRouterInMap) {
+            // not in direct neighbor
+            // insert intp neighbor directly
+            insert_neighbor(sourceRouterID, rtt, port);
+            if (DV_table.count(sourceRouterID) == 0) {
+                // also not exists in  DV ..insert into DV
+                insert_DV(sourceRouterID, direct_neighbor_map[sourceRouterID].cost, sourceRouterID);
+                insert_forward(sourceRouterID, sourceRouterID);
+            } else {
+                if (direct_neighbor_map[sourceRouterID].cost < DV_table[sourceRouterID].cost) {
+                    // exist in DV but  current is smaller
+                    update_DV(sourceRouterID, direct_neighbor_map[sourceRouterID].cost, sourceRouterID);
                     update_forward(sourceRouterID, sourceRouterID);
                 }
             }
         } else {
-            for (auto &pair: DV_table) {
-                uint16_t dest_id = pair.first;
-                auto &dv_entry = pair.second;
-                if (dest_id == sourceRouterID || dv_entry.next_hop == sourceRouterID) {
-                    // 目的地为来的router，或要去某个router必须经过来的router, update time
-                    dv_entry.last_update_time = sys->time();
+            // we have DV and neighbor
+            DirectNeighborEntry *dn = &direct_neighbor_map[sourceRouterID];
+            int prev_cost = dn->cost;
+            update_neighbor(sourceRouterID, rtt, port);
+            int cur_cost = dn->cost;
+            int diff = cur_cost - prev_cost;
+            if (diff != 0) {
+                for (auto it = DV_table.begin(); it != DV_table.end(); ++it) {
+                    unsigned int new_cost = diff + it->second.cost;
+                    if (it->second.next_hop == sourceRouterID) {
+                        // the nodes pass the source
+                        if (direct_neighbor_map.count(it->first) != 0) {
+                            // in direct neighbor
+                            if (direct_neighbor_map[it->first].cost < diff) {
+                                update_DV(it->first, direct_neighbor_map[it->first].cost, it->first);
+                                update_forward(it->first, it->first);
+                            } else {
+                                // upodate the cost
+                                update_DV(it->first, new_cost, it->second.next_hop);
+                            }
+                        }
+                    } else if (it->first == sourceRouterID && new_cost < DV_table[sourceRouterID].cost) {
+                        update_DV(sourceRouterID, new_cost, sourceRouterID);
+                        update_forward(sourceRouterID, sourceRouterID);
+                    }
                 }
             }
         }
+        send_dv_packet();
+//        printDVTable();
     }
-    send_dv_packet();
-//    printNeighborTable();
-    printDVTable();
+    else if (packet_type == P_LS)
+    {
+        
+    }
 }
 
 void RoutingProtocolImpl::recv_data(unsigned short port, void *packet, unsigned short size) {
@@ -275,7 +272,7 @@ void RoutingProtocolImpl::recv_dv_packet(unsigned short port, void *packet, unsi
     }
     if (table_changed) {
 //        printNeighborTable();
-        printDVTable();
+//        printDVTable();
         send_dv_packet();
     }
 }
@@ -347,7 +344,6 @@ void RoutingProtocolImpl::send_dv_packet() {
 }
 
 void RoutingProtocolImpl::handle_port_expire() {
-    // 1 PORT EXPIRE
     // Iterate through ports, disconnect some ports, remove entries in DVtable and DirectNeighbor Table
     // remove all entries in DVtable whose next_hop is ports.to
     // remove all entries in directNeighborTable connected to that expire port
@@ -379,9 +375,6 @@ void RoutingProtocolImpl::handle_port_expire() {
                         remove_list.push_back(dest_id);
                     } else {
                         update_DV(dest_id, direct_neighbor_map[dest_id].cost, dest_id);
-//                        dv_entry.cost = direct_neighbor_map[dest_id].cost;
-//                        dv_entry.next_hop = dest_id;
-//                        dv_entry.last_update_time = sys->time();
                     }
                 }
             }
@@ -435,10 +428,10 @@ void RoutingProtocolImpl::printDVTable() {
     cout << "This is DV table" << endl;
     cout << "Router ID: " << router_id << endl;
     cout << "*********************************" << endl;
-    cout << "DestID\tcost\tnextHop" << endl;
+    cout << "DestID\tcost\tnextHop\tupdateTime" << endl;
     cout << "*********************************" << endl;
     for (auto &entry: DV_table) {
-        cout << entry.first << "\t" << entry.second.cost << "\t" << entry.second.next_hop << endl;
+        cout << entry.first << "\t" << entry.second.cost << "\t" << entry.second.next_hop<<"\t"<<entry.second.last_update_time << endl;
     }
     cout << "*********************************" << endl;
 }
