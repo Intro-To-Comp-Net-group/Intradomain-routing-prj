@@ -6,11 +6,15 @@
 #define PROJECT3_UTILS_H
 
 #include "global.h"
+#include <set>
 
 #define NO_NEIGHBOR_FLAG 0xffff
 #define PINGPONG_PACKET_SIZE 12
 #define PAYLOAD_POS 8
+#define LS_PAYLOAD_POS 12
 #define SECOND 1000
+
+#define FLOOD_ALL_FLAG -1
 
 enum eAlarmType {
     PINGPONG_ALARM,
@@ -28,7 +32,7 @@ struct PortEntry {
 
 struct DirectNeighborEntry {
     uint16_t port_num;
-    uint16_t router_id;
+//    uint16_t router_id;
     unsigned int cost;
 };
 
@@ -40,10 +44,12 @@ struct DVEntry {
 
 struct ForwardTableEntry {
     uint16_t next_router_id;
-
-//    ForwardTableEntry(uint16_t router_id) {
-//        this->next_router_id = router_id;
-//    }
 };
+
+struct LSEntry {
+    unsigned int cost;
+    unsigned int last_update_time;
+};
+
 
 #endif //PROJECT3_UTILS_H

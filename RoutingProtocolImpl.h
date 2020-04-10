@@ -6,6 +6,7 @@
 #include "Node.h"
 #include "AlarmHandler.h"
 
+
 class RoutingProtocolImpl : public RoutingProtocol {
 public:
     RoutingProtocolImpl(Node *n);
@@ -60,12 +61,17 @@ private:
     unordered_map<uint16_t, ForwardTableEntry> forward_table;   // other router id --- the next router a packet need to be sent out when receiving it
     unordered_map<uint16_t, DVEntry> DV_table;  // other router id --- cost from this router to OTHER routers
 
+    // LS Part
+    uint32_t seq_num;
+//    unordered_map<uint16_t, unordered_map<uint16_t, uint16_t>> LS_table;
+    unordered_map<uint16_t, unordered_map<uint16_t, LSEntry>> LS_table;
+    set<pair<uint16_t, uint32_t>> haveSeenSet;
+
 private:
     // Additional Helper Functions Implemented by Our team
     void init_pingpong();
 
     void recv_ping_packet(unsigned short port, void *packet, unsigned short size);
-
 
     void update_DV(int16_t dest_id,  unsigned int cost, uint16_t next_hop);
     void update_forward(uint16_t dest_id,uint16_t next_hop);
@@ -83,9 +89,6 @@ private:
 
     void handle_dv_expire();
 
-    bool createEntryIfNotExists(uint16_t sourceID, unsigned int cost);
-
-
     void printDVTable();
 
     void printNeighborTable();
@@ -97,6 +100,19 @@ private:
     void insert_DV(int16_t dest_id, unsigned int cost, uint16_t next_hop);
 
     void insert_forward(uint16_t dest_id, uint16_t next_hop);
+
+    // LS part:
+    void flood_ls_packet(bool isSendMyLSP, uint16_t in_port_num, void * input_packet);
+
+//    void handle_PONG_with_LS();
+
+    void insert_LS(int16_t dest_id, unsigned int cost);
+
+    void update_LS(int16_t dest_id, unsigned int cost);
+
+    void update_seq_num();
+
+
 };
 
 #endif
