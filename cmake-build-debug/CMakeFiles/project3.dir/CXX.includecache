@@ -10,16 +10,6 @@
 RoutingProtocolImpl.h
 /Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/RoutingProtocolImpl.h
 
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Event.h
-global.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/global.h
-RoutingProtocol.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/RoutingProtocol.h
-Link.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Link.h
-Node.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Node.h
-
 /Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Link.h
 global.h
 /Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/global.h
@@ -49,30 +39,6 @@ Node.h
 /Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Node.h
 AlarmHandler.h
 /Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/AlarmHandler.h
-
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Simulator.cc
-Simulator.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Simulator.h
-RoutingProtocolImpl.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/RoutingProtocolImpl.h
-sys/types.h
--
-netinet/in.h
--
-inttypes.h
--
-string.h
--
-
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Simulator.h
-global.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/global.h
-Node.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Node.h
-Event.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/Event.h
-RoutingProtocol.h
-/Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/RoutingProtocol.h
 
 /Users/hanyiwang/Desktop/Rice/ELEC556 Intro to Computer Network/project3/project3/global.h
 vector

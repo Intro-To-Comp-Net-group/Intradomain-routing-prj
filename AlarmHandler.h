@@ -10,10 +10,15 @@
 class AlarmHandler {
 public:
     AlarmHandler() {
-        pingpong_alarm_data = (eAlarmType *) malloc(sizeof(char));
-        expire_alarm_data = (eAlarmType *) malloc(sizeof(char));
-        dv_update_alarm_data = (eAlarmType *) malloc(sizeof(char));
-        ls_update_alarm_data = (eAlarmType *) malloc(sizeof(char));
+        pingpong_alarm_data = (eAlarmType *) malloc(sizeof(eAlarmType));
+        expire_alarm_data = (eAlarmType *) malloc(sizeof(eAlarmType));
+        dv_update_alarm_data = (eAlarmType *) malloc(sizeof(eAlarmType));
+        ls_update_alarm_data = (eAlarmType *) malloc(sizeof(eAlarmType));
+
+        *pingpong_alarm_data = PINGPONG_ALARM;
+        *dv_update_alarm_data = DV_UPDATE_ALARM;
+        *ls_update_alarm_data = LS_UPDATE_ALARM;
+        * expire_alarm_data = EXPIRE_ALARM;
     }
 
     ~AlarmHandler() {
@@ -24,18 +29,16 @@ public:
     }
 
     void init_alarm(Node * sys, RoutingProtocol * r, eProtocolType protocol_type) {
-        *pingpong_alarm_data = PINGPONG_ALARM;
-        *dv_update_alarm_data = DV_UPDATE_ALARM;
-        *ls_update_alarm_data = LS_UPDATE_ALARM;
-        * expire_alarm_data = EXPIRE_ALARM;
+
         this->protocol_type = protocol_type;
 
         sys->set_alarm(r, 10*SECOND, (void*) pingpong_alarm_data);
-        sys->set_alarm(r, 1 *SECOND, (void*) expire_alarm_data);
-        if (protocol_type == P_DV)
+        if (protocol_type == P_DV) {
             sys->set_alarm(r, 30*SECOND, (void*) dv_update_alarm_data);
-        else
-            sys->set_alarm(r, 30*SECOND, (void*) ls_update_alarm_data);
+        } else if (protocol_type == P_LS) {
+            sys->set_alarm(r, 30 * SECOND, (void*) ls_update_alarm_data);
+        }
+        sys->set_alarm(r, 1 *SECOND, (void*) expire_alarm_data);
     }
 
 private:

@@ -47,10 +47,6 @@ private:
     Node *sys; // To store Node object; used to access GSR9999 interfaces
 
     AlarmHandler * alarmHandler;
-//    eAlarmType * pingpong_alarm_data;
-//    eAlarmType * dv_update_alarm_data;
-//    eAlarmType * ls_update_alarm_data;
-//    eAlarmType * expire_alarm_data;
 
     unsigned short num_ports;
     unsigned short router_id;
