@@ -3,16 +3,18 @@
 1 2 3 4
                                                                                                                                                                                                      
 [links]
-                                                                                                                                                                                                     
-(1,2) delay 0.020 prob 0.0
-(1,3) delay 0.020 prob 0.0
-(2,4) delay 0.020 prob 0.0
-(3,4) delay 0.020 prob 0.0
-(1,4) delay 0.050 prob 0.0
+
+(1,2) delay 0.010 prob 0.0
+(2,3) delay 0.010 prob 0.0
+(3,4) delay 0.010 prob 0.0
+(1,3) delay 0.050 prob 0.0
+(2,4) delay 0.050 prob 0.0
 
 [events]
 
-
-100.00 changedelay (1,4) 0.010
-
+80.01 xmit (3,1)
+102.00 changedelay (2,3) 0.100
+108.01 xmit (3,1)
+118.01 xmit (3,1)
+128.01 xmit (3,1)
 200.00 end
