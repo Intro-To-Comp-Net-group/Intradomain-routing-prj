@@ -53,4 +53,18 @@ struct LSEntry {
 };
 
 
+struct DijkstraEntry {
+    uint16_t fromRouterID;
+    uint16_t cost;
+};
+
+struct CustomCompare
+{
+    bool operator()(pair<uint16_t, DijkstraEntry> p1, pair<uint16_t, DijkstraEntry> p2)
+    {
+        return p1.second.cost > p2.second.cost;
+    }
+};
+
+
 #endif //PROJECT3_UTILS_H

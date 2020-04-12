@@ -160,7 +160,7 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
             if (check_link_in_LSTable(router_id, sourceRouterID) == false) {
                 insert_LS(router_id, sourceRouterID, rtt);
                 insert_forward(sourceRouterID, sourceRouterID);
-                // Dijkstra()
+                Dijkstra_update();
                 flood_ls_packet(true, FLOOD_ALL_FLAG, EMPTY_PACKET, size);
             }
         } else {    // In DirectNeighbor
@@ -171,7 +171,7 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
             int diff = cur_cost - prev_cost;
             if (diff != 0) {
                 update_LS(router_id, sourceRouterID, cur_cost);
-                // Dijkstra()
+                Dijkstra_update();
                 flood_ls_packet(true, FLOOD_ALL_FLAG, EMPTY_PACKET, size);
             }
         }
@@ -341,7 +341,7 @@ void RoutingProtocolImpl::recv_ls_packet(unsigned short port, void *packet, unsi
     free(packet);
 
 //    cout << "RECV LSP AFTER UPDATE FROM: " << sourceRouterID << endl;
-    printLSTable();
+//    printLSTable();
 }
 
 
@@ -653,7 +653,7 @@ void RoutingProtocolImpl::handle_ls_expire() {
     }
 
     if (hasChange) {
-//        Dijkstra();
+        Dijkstra_update();
         flood_ls_packet(true, FLOOD_ALL_FLAG, EMPTY_PACKET, -1);
     }
 
@@ -715,4 +715,74 @@ void RoutingProtocolImpl::printLSTable() {
     cout << "*********************************" << endl;
     cout << endl;
 }
+
+void RoutingProtocolImpl::Dijkstra_update() {
+    unordered_map<uint16_t, uint16_t> dis;
+    unordered_map<uint16_t, bool> visit;
+    unordered_map<uint16_t, uint16_t> transport_from;
+    priority_queue<pair<uint16_t, DijkstraEntry>, vector<pair<uint16_t, DijkstraEntry>>, CustomCompare> pq;
+
+    struct DijkstraEntry new_entry = {.cost = 0, .fromRouterID = router_id};
+    pq.push(make_pair(router_id, new_entry));
+    dis[router_id] = 0;
+    while (!pq.empty()) {
+        pair<uint16_t, DijkstraEntry> point = pq.top();
+        pq.pop();
+
+        uint16_t cur_node = point.first;
+        uint16_t cur_distance = point.second.cost;
+        if (visit[cur_node]) {
+            continue;
+        }
+//
+//        if (!cur_node == router_id && forward_table.count(cur_node) == 0) {
+////            ForwardTableEntry new_fwd_entry = {direct_neighbor_map[cur_node].};
+////            forward_table[cur_node] = direct_neighbor_map[cur_node].port_num;
+//        } else if (!cur_node == router_id && forward_table.count(cur_node) != 0) {
+//            uint16_t node_from = transport_from[cur_node];
+//            forward_table[cur_node] = forward_table[node_from];
+//        }
+
+        visit[cur_node] = true;
+
+        vector<pair<uint16_t, uint16_t>> candidates;
+        for (auto &entry: LS_table[cur_node]) {
+            uint16_t dest_id = entry.first;
+            uint16_t cost = entry.second.cost;
+            candidates.emplace_back(dest_id, cost);
+        }
+
+        for (pair<uint16_t, uint16_t> neighbor : candidates) {
+            uint16_t dest = neighbor.first;
+            uint16_t cost = neighbor.second;
+            if (visit[dest]) {
+                continue;
+            }
+            uint16_t new_distance = cur_distance + cost;
+            if(dis.count(dest) == 0){
+                dis[dest] = new_distance;
+            }else{
+                if (new_distance < dis[dest]) {
+                    DijkstraEntry new_dentry = {.cost = new_distance, .fromRouterID= cur_node};
+                    dis[dest] = new_distance;
+                    pair<uint16_t, DijkstraEntry> new_child = make_pair(dest, new_dentry);
+                    pq.push(new_child);
+//                    transport_from[dest] = cur_node;
+                }
+
+            }
+        }
+    }
+
+    cout << endl;
+    cout << "RESULT OF DIJKSTRA" << endl;
+    for (auto &pair: dis) {
+        cout << "DEST_ID: " << pair.first << " COST: " << pair.second << endl;
+    }
+    cout << "========================" << endl;
+    cout << endl;
+
+}
+
+
 
