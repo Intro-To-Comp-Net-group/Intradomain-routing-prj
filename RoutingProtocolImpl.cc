@@ -49,7 +49,6 @@ void RoutingProtocolImpl::handle_alarm(void *data) {
         sys->set_alarm(this, 30 * SECOND, data);
     } else {
         cout << "Alarm type not acceptable. " << endl;
-//        exit(1);
     }
 }
 
@@ -74,10 +73,13 @@ void RoutingProtocolImpl::recv(unsigned short port, void *packet, unsigned short
 }
 
 void RoutingProtocolImpl::recv_ping_packet(unsigned short port, void *packet, unsigned short size) {
-    char *pong_to_send = (char *) packet;
-    uint16_t from_port_id = ntohs(*(uint16_t *) (pong_to_send + 4));
-    unsigned int recv_time = ntohl(*(unsigned int *) (pong_to_send + 8));
+    char *recv_ping = (char *) packet;
+    uint16_t from_port_id = ntohs(*(uint16_t *) (recv_ping + 4));
+    unsigned int recv_time = ntohl(*(unsigned int *) (recv_ping + 8));
+    free(packet);
+
     // Send back pong packet
+    char *pong_to_send = (char *) malloc(sizeof(char) * size);
     *(char *) pong_to_send = PONG;
     *(uint16_t *) (pong_to_send + 2) = htons(12);
     *(uint16_t *) (pong_to_send + 4) = htons(this->router_id);
@@ -159,7 +161,6 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
                 insert_LS(router_id, sourceRouterID, rtt);
                 insert_forward(sourceRouterID, sourceRouterID);
 
-//                printLSTable();
                 Dijkstra_update();
                 flood_ls_packet(true, FLOOD_ALL_FLAG, EMPTY_PACKET, size);
             }
@@ -182,15 +183,10 @@ void RoutingProtocolImpl::recv_pong_packet(unsigned short port, void *packet, un
 void RoutingProtocolImpl::recv_data(unsigned short port, void *packet, unsigned short size) {
     char *data_to_flood = (char *) packet;
     uint16_t dest_router_id = ntohs(*(uint16_t *) (data_to_flood + 6));
-
-//    printDVTable();
-//    printNeighborTable();
-//    printLSTable();
-//    printFwdTable();
     // If originating from this router
-    if (port == SPECIAL_PORT)
+    if (port == SPECIAL_PORT) {
         *(uint16_t *) (data_to_flood + 4) = router_id;
-
+    }
 
     // If we reach the destination
     if (dest_router_id == router_id) {
@@ -229,7 +225,6 @@ void RoutingProtocolImpl::recv_dv_packet(unsigned short port, void *packet, unsi
         dv_entry.second = cost;
         dv_entry_vec.push_back(dv_entry);
     }
-
     free(packet);
 
     // recalculate the dis between curNode and sourceNode, if it does not exists in neighbor
@@ -316,6 +311,23 @@ void RoutingProtocolImpl::recv_ls_packet(unsigned short port, void *packet, unsi
     flood_ls_packet(false, port, recv_packet, size);  // flooding re-transmit
     free(packet);
 
+    // special case handling
+    if (LS_table.count(sourceRouterID) > 0) {
+        auto tmp_map = LS_table[sourceRouterID];
+        for (auto &pair: tmp_map) {
+            uint16_t target_node = pair.first;
+            bool isIn = false;
+            for (auto &pair1: recv_ls_list) {
+                uint16_t dest_id = pair1.first;
+                if (target_node == dest_id) isIn = true;
+            }
+            if (!isIn) {
+                remove_LS(sourceRouterID, target_node);
+                hasChange = true;
+            }
+        }
+    }
+
     // 2. Update LS table
     for (auto &pair: recv_ls_list) {
         uint16_t dest_id = pair.first;
@@ -330,34 +342,28 @@ void RoutingProtocolImpl::recv_ls_packet(unsigned short port, void *packet, unsi
         if (!check_link_in_LSTable(sourceRouterID, dest_id)) { // received entry not in my LS table, add it!
             hasChange = true;
             insert_LS(sourceRouterID, dest_id, cost);
-
         } else {    // update it!
             uint16_t old_cost = LS_table[dest_id][sourceRouterID].cost;
             if (cost != old_cost) {
                 hasChange = true;
                 update_LS(sourceRouterID, dest_id, cost);
             }
-//            else update_LS(sourceRouterID, dest_id, cost);    // TODO: Do we need to update time when there's no change? If no, delete this line
         }
     }
 
     // 3. flood my LS packet, and re-transmit(flood) others' packets
     if (hasChange) {
-
         Dijkstra_update();
         flood_ls_packet(true, FLOOD_ALL_FLAG, EMPTY_PACKET, size);
     }
 //    printNeighborTable();
 //    printLSTable();
 //    printFwdTable();
-
 }
 
-
-
 //************************************************************************************************//
 //************************************************************************************************//
-// ALARM HANDLING AREA
+//  ALARM HANDLING
 //************************************************************************************************//
 //************************************************************************************************//
 
@@ -373,7 +379,6 @@ bool RoutingProtocolImpl::handle_port_expire() {
             PortEntry &port = port_graph[i];
             unsigned int time_lag = sys->time() - port.last_update_time;
             if (time_lag > 15 * SECOND && port.direct_neighbor_id != NO_NEIGHBOR_FLAG) {
-//                cout << "route_id: " << router_id << "port: " << i << " expires ";
                 hasChange = true;
 
                 port.cost = INFINITY_COST;
@@ -413,7 +418,6 @@ bool RoutingProtocolImpl::handle_port_expire() {
             PortEntry &port = port_graph[i];
             unsigned int time_lag = sys->time() - port.last_update_time;
             if (time_lag > 15 * SECOND && port.direct_neighbor_id != NO_NEIGHBOR_FLAG) {
-//                cout << "route_id: " << router_id << "port: " << i << " expires ";
                 hasChange = true;
                 port.cost = INFINITY_COST;
                 uint16_t connected_router = port.direct_neighbor_id;
@@ -440,14 +444,14 @@ bool RoutingProtocolImpl::handle_port_expire() {
 void RoutingProtocolImpl::handle_dv_expire() {
     bool hasChange = handle_port_expire();
     vector<uint16_t> remove_list;
-    for (auto it = DV_table.begin(); it != DV_table.end(); ++it) {
-        if (sys->time() - it->second.last_update_time > 45 * SECOND) {
+    for (auto & it : DV_table) {
+        if (sys->time() - it.second.last_update_time > 45 * SECOND) {
             hasChange = true;
-            if (direct_neighbor_map.count(it->first) != 0) {
-                update_DV(it->first, direct_neighbor_map[it->first].cost, it->first);
-                update_forward(it->first, it->first);
+            if (direct_neighbor_map.count(it.first) != 0) {
+                update_DV(it.first, direct_neighbor_map[it.first].cost, it.first);
+                update_forward(it.first, it.first);
             } else {
-                remove_list.push_back(it->first);
+                remove_list.push_back(it.first);
             }
         }
     }
@@ -472,7 +476,7 @@ void RoutingProtocolImpl::handle_ls_expire() {
             uint16_t node2_id = sub_entry.first;
             LSEntry &ls_entry = sub_entry.second;
             if (sys->time() - ls_entry.last_update_time > 45 * SECOND) {
-                delete_list.emplace_back(node1_id, node2_id);   // push_back(make_pair(node1_id, node2_id));
+                delete_list.emplace_back(node1_id, node2_id);
                 hasChange = true;
             }
         }
@@ -831,5 +835,3 @@ void RoutingProtocolImpl::printFwdTable() {
     }
     cout << "==================================" << endl;
 }
-
-

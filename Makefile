@@ -1,4 +1,4 @@
-CC = g++-9
+CC = g++
 COPTS = -g -Wall -std=c++11
 LKOPTS = 
 
