@@ -1,11 +1,23 @@
 #ifndef ROUTINGPROTOCOLIMPL_H
 #define ROUTINGPROTOCOLIMPL_H
 
+#include <iostream>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <sys/time.h>
+#include <fcntl.h>
+#include <vector>
 #include "RoutingProtocol.h"
 #include "utils.h"
 #include "Node.h"
 #include "AlarmHandler.h"
 #include <queue>
+#include <cstring>
 
 
 
@@ -39,7 +51,7 @@ public:
     // DATA packet is created at a router by the simulator, your
     // recv() function will be called for such DATA packet, but with a
     // special port number of SPECIAL_PORT (see global.h) to indicate
-    // that the packet is generated locally and not received from 
+    // that the packet is generated locally and not received from
     // a neighbor router.
 
 
@@ -47,66 +59,69 @@ public:
 
 private:
     Node *sys; // To store Node object; used to access GSR9999 interfaces
-
-    AlarmHandler * alarmHandler;
-
     unsigned short num_ports;
     unsigned short router_id;
     eProtocolType packet_type;
-    void * EMPTY_PACKET;    // Used for flooding
 
-    vector<PortEntry> port_graph;
-    unordered_map<uint16_t, DirectNeighborEntry> direct_neighbor_map;   // other router id --- DirectNeighbor   PHYSICAL
-    unordered_map<uint16_t, ForwardTableEntry> forward_table;   // other router id --- the next router a packet need to be sent out when receiving it
-    unordered_map<uint16_t, DVEntry> DV_table;  // other router id --- cost from this router to OTHER routers
+    // Alarm Part
+    AlarmHandler * alarmHandler;    // deal with alarms
+    void * EMPTY_PACKET;    // used for flooding, an empty flag
+
+    // Data Part
+    vector<PortEntry> port_graph;   // store ports information
+    unordered_map<uint16_t, DirectNeighborEntry> direct_neighbor_map;   // <neighbor_id, <port, cost, last_update_time>>   PHYSICAL connection
+    unordered_map<uint16_t, ForwardTableEntry> forward_table;   // <dest_id, next_hop> used to forward data
+
+    // DV Part
+    unordered_map<uint16_t, DVEntry> DV_table;  // <dest_id, <cost, next_hop, last_update_time>>
 
     // LS Part
-    uint32_t seq_num;
-    unordered_map<uint16_t, unordered_map<uint16_t, LSEntry>> LS_table;
-    set<pair<uint16_t, uint32_t>> haveSeenSet;
+    uint32_t seq_num;   // along with sourceRouterID, uniquely identify an LSP
+    unordered_map<uint16_t, unordered_map<uint16_t, LSEntry>> LS_table; // use for Dijkstra to update forward_table
+    set<pair<uint16_t, uint32_t>> haveSeenSet;  // store seen LSP to terminate flooding
 
 private:
-    // Additional Helper Functions Implemented by Our team
-    void init_pingpong();
+    // Additional Helper Functions Implemented by Our Group
+    // ====================================================================================
+    // 1. Initialization and alarm handling
+    void init_ports();  // initialize ports
 
-    void recv_ping_packet(unsigned short port, void *packet, unsigned short size);
+    void init_pingpong();   // send ping packets
 
-    void update_DV(int16_t dest_id,  unsigned int cost, uint16_t next_hop);
-    void update_forward(uint16_t dest_id,uint16_t next_hop);
-    void update_neighbor(uint16_t neighbor_id, unsigned int cost, uint16_t port_num);
-
-    void recv_data(unsigned short port, void *packet, unsigned short size);
-
-    void recv_dv_packet(unsigned short port, void *packet, unsigned short size);
-
-    void recv_ls_packet(unsigned short port, void *packet, unsigned short size);
-
-    void send_dv_packet();
-
-    void handle_port_expire();
+    bool handle_port_expire();   //
 
     void handle_dv_expire();
 
-    void printDVTable();
+    void handle_ls_expire();
+    // ====================================================================================
 
-    void printNeighborTable();
+    // ====================================================================================
+    // 2. PINGPONG helper functions
+    void recv_ping_packet(unsigned short port, void *packet, unsigned short size);
 
     void recv_pong_packet(unsigned short port, void *packet, unsigned short size);
 
-    void insert_neighbor(uint16_t neighbor_id, unsigned int cost, uint16_t port_num);
+    // ====================================================================================
+
+    // ====================================================================================
+    // 3. DV helper functions
+    void recv_dv_packet(unsigned short port, void *packet, unsigned short size);
+
+    void send_dv_packet();
+
+    void update_DV(int16_t dest_id,  unsigned int cost, uint16_t next_hop);
 
     void insert_DV(int16_t dest_id, unsigned int cost, uint16_t next_hop);
 
-    void insert_forward(uint16_t dest_id, uint16_t next_hop);
+    // ====================================================================================
 
-    // LS part:
+    // ====================================================================================
+    // 4. LS helper functions
+    void recv_ls_packet(unsigned short port, void *packet, unsigned short size);
+
     void flood_ls_packet(bool isSendMyLSP, uint16_t in_port_num, void * input_packet, int in_packet_size);
 
     void Dijkstra_update();
-
-    void handle_ls_expire();
-
-    void remove_LS(uint16_t node1_id, uint16_t node2_id);
 
     bool check_link_in_LSTable(uint16_t node1_id, uint16_t node2_id);
 
@@ -116,9 +131,30 @@ private:
 
     void update_seq_num();
 
+    void remove_LS(uint16_t node1_id, uint16_t node2_id);
+
     void printLSTable();
+    // ====================================================================================
 
+    // ====================================================================================
+    // 5. General helper functions -- update, delete Neighbor table, etc.
 
+    void recv_data(unsigned short port, void *packet, unsigned short size);
+
+    void update_forward(uint16_t dest_id,uint16_t next_hop);
+
+    void update_neighbor(uint16_t neighbor_id, unsigned int cost, uint16_t port_num);
+
+    void insert_neighbor(uint16_t neighbor_id, unsigned int cost, uint16_t port_num);
+
+    void insert_forward(uint16_t dest_id, uint16_t next_hop);
+
+    void printDVTable();
+
+    void printNeighborTable();
+
+    void printFwdTable();
+    // ====================================================================================
 };
 
 #endif
